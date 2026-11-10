@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Cukupin - Hari Ini Boleh Habis Berapa?</title>
+  
+  <!-- SEO & Social Sharing (WhatsApp, Telegram, etc.) -->
+  <meta name="description" content="Website budgeting simpel untuk mahasiswa anak rantau. Ketahui sisa jatah jajan harianmu agar uang kiriman cukup sampai akhir bulan!">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Cukupin - Hari Ini Boleh Habis Berapa?">
+  <meta property="og:description" content="Kawal uang jajan anak rantau. Hitung jatah harian otomatis dari sisa saldo dan biaya tetapmu!">
+  <meta property="og:site_name" content="Cukupin">
+  <meta name="theme-color" content="#2563EB">
+
+  <!-- Inline SVG Favicon (Huruf 'C' putih dengan background biru #2563EB) -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%232563EB'/%3E%3Ctext x='50%25' y='54%25' text-anchor='middle' dominant-baseline='middle' fill='%23FFFFFF' font-family='sans-serif' font-weight='800' font-size='38'%3EC%3C/text%3E%3C/svg%3E">
+
+  <!-- Google Fonts: Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Chart.js via CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-container">
+    
+    <!-- TOP NAVIGATION / BRAND -->
+    <header class="app-header">
+      <div class="brand">
+        <div class="brand-logo">C</div>
+        <div>
+          <h1 class="brand-name">Cukupin</h1>
+          <p class="brand-tagline">Kawal Dompet Anak Rantau</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button id="btn-theme-toggle" class="icon-btn" title="Ganti Mode Gelap/Terang" aria-label="Ganti tema">
+          <span class="theme-icon">🌙</span>
+        </button>
+        <button id="btn-open-settings" class="icon-btn" title="Pengaturan & Backup" aria-label="Pengaturan">
+          ⚙️
+        </button>
+      </div>
+    </header>
+
+    <!-- VIEW 1: SETUP SCREEN (Ditampilkan jika belum ada data) -->
+    <section id="view-setup" class="view-section">
+      <div class="card setup-card">
+        <div class="setup-header">
+          <div class="badge-soft">Halo Mahasiswa Rantau! 👋</div>
+          <h2>Biar Nggak Boncos, Yuk Atur Dulu</h2>
+          <p class="text-secondary">Masukkan uang kiriman dan jadwal kirimanmu. Cukupin bakal bantu hitung jatah jajan harianmu secara otomatis.</p>
+        </div>
+
+        <form id="form-setup">
+          <!-- Input Nominal Kiriman -->
+          <div class="form-group">
+            <label for="setup-income">Berapa uang kiriman / saldo awalmu?</label>
+            <div class="input-prefix-wrapper">
+              <span class="input-prefix">Rp</span>
+              <input type="text" inputmode="numeric" id="setup-income" placeholder="Contoh: 1.500.000" required autocomplete="off">
+            </div>
+            <span class="helper-text">Total uang pegangan kamu saat ini.</span>
+          </div>
+
+          <!-- Input Tanggal Kiriman Berikutnya -->
+          <div class="form-group">
+            <label for="setup-next-date">Kapan tanggal kiriman berikutnya?</label>
+            <input type="date" id="setup-next-date" required>
+            <span class="helper-text" id="setup-days-helper">Pilih tanggal kiriman dari ortu atau gajian.</span>
+          </div>
+
+          <!-- Biaya Tetap (Fixed Costs) -->
+          <div class="form-group">
+            <div class="fixed-costs-header">
+              <label>Biaya Tetap yang Harus Dibayar</label>
+              <span class="text-secondary text-sm">Disisihkan dari jatah</span>
+            </div>
+            <p class="helper-text">Contoh: kosan, uang kas, wifi, atau laundry.</p>
+
+            <div id="setup-fixed-list" class="fixed-cost-items">
+              <!-- Item dinamis ditambahkan via JS -->
+            </div>
+
+            <button type="button" id="btn-add-fixed-item" class="btn btn-secondary btn-sm mt-2">
+              ➕ Tambah Biaya Tetap
+            </button>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-block btn-lg mt-4">
+            Mulai Cukupin Sekarang 🚀
+          </button>
+        </form>
+      </div>
+    </section>
+
+    <!-- VIEW 2: DASHBOARD UTAMA -->
+    <main id="view-dashboard" class="view-section hidden">
+      
+      <!-- Greeting & Sisa Hari (Bisa diklik untuk ubah tanggal) -->
+      <div class="greeting-bar">
+        <div class="greeting-text">
+          <span id="greeting-time">Halo, pejuang rantau! 👋</span>
+          <h2 id="greeting-sub">Tetap semangat hari ini</h2>
+        </div>
+        <button class="countdown-badge interactive" id="btn-edit-date-quick" title="Klik untuk ubah tanggal kiriman">
+          <span class="countdown-icon">⏳</span>
+          <div>
+            <div class="countdown-days" id="days-remaining-count">-- hari</div>
+            <div class="countdown-sub">menuju kiriman ✏️</div>
+          </div>
+        </button>
+      </div>
+
+      <!-- BANNER PERINGATAN: KIRIMAN TELAH TIBA / OVERDUE -->
+      <div id="cycle-due-banner" class="banner-alert banner-success hidden">
+        <div class="banner-icon">🎉</div>
+        <div class="banner-content">
+          <h4>Hari Kiriman Sudah Tiba!</h4>
+          <p>Sudah dapat transferan baru? Yuk mulai siklus baru dan carry over sisa uangmu.</p>
+        </div>
+        <button id="btn-banner-new-cycle" class="btn btn-sm btn-primary">Siklus Baru</button>
+      </div>
+
+      <!-- HERO ALLOWANCE CARD: Sisa Jatah Hari Ini -->
+      <div class="card allowance-card" id="allowance-card">
+        <div class="card-accent-strip"></div>
+        
+        <div class="allowance-top">
+          <span class="allowance-label">Sisa Jatah Hari Ini</span>
+          <span class="status-pill" id="allowance-status-pill">
+            <span class="status-dot"></span>
+            <span id="allowance-status-text">Aman</span>
+          </span>
+        </div>
+
+        <!-- Angka Besar Jatah Hari Ini -->
+        <div class="allowance-amount-wrapper">
+          <div class="allowance-amount" id="allowance-amount">Rp 0</div>
+        </div>
+
+        <!-- Progress Bar Pengeluaran Hari Ini -->
+        <div class="progress-container">
+          <div class="progress-bar-bg">
+            <div class="progress-bar-fill" id="allowance-progress-fill" style="width: 100%;"></div>
+          </div>
+          <div class="progress-info">
+            <span id="progress-spent-text">Sudah jajan: Rp 0</span>
+            <span id="progress-budget-text">Jatah awal: Rp 0</span>
+          </div>
+        </div>
+
+        <!-- Friendly Status Message -->
+        <div class="friendly-message-box" id="friendly-message-box">
+          <span class="friendly-emoji" id="friendly-emoji">☕</span>
+          <span class="friendly-text" id="friendly-text">Aman, lanjut ngopi santai!</span>
+        </div>
+      </div>
+
+      <!-- EDGE CASE: OVERSPENT WARNING & RECOVERY CARD (Jika sisa jatah minus) -->
+      <div id="overspent-recovery-card" class="card warning-recovery-card hidden">
+        <div class="recovery-header">
+          <span class="recovery-icon">⚠️</span>
+          <div>
+            <h4>Jatah Hari Ini Terlewati</h4>
+            <p id="overspent-recovery-desc">Kamu jajan lebih banyak dari jatah hari ini.</p>
+          </div>
+        </div>
+        <div class="recovery-impact-box" id="recovery-impact-box">
+          <!-- Text perhitungan dampak penyesuaian ke hari-hari berikutnya -->
+        </div>
+      </div>
+
+      <!-- CARD PREDIKSI KETAHANAN UANG -->
+      <div class="card prediction-card" id="prediction-card">
+        <div class="prediction-header">
+          <span class="prediction-icon">🔮</span>
+          <div>
+            <h4>Prediksi Ketahanan Uang</h4>
+            <p class="text-secondary text-sm">Berdasarkan rata-rata pengeluaran harianmu</p>
+          </div>
+        </div>
+        <div class="prediction-body mt-2">
+          <div class="prediction-highlight" id="prediction-highlight-text">
+            Menghitung prediksi...
+          </div>
+          <div class="prediction-sub-info" id="prediction-sub-info">
+            <!-- Info detail rata-rata jajan & sisa hari -->
+          </div>
+        </div>
+      </div>
+
+      <!-- RINGKASAN DOMPET & BIAYA TETAP -->
+      <div class="card wallet-summary-card">
+        <div class="wallet-summary-header">
+          <h3>Ringkasan Dompet</h3>
+          <div class="wallet-actions">
+            <button id="btn-add-income-quick" class="btn btn-sm btn-secondary" title="Tambah transferan ekstra atau honor">
+              💰 + Uang Masuk
+            </button>
+            <button id="btn-toggle-fixed-view" class="text-btn">Biaya Tetap</button>
+          </div>
+        </div>
+
+        <div class="wallet-grid">
+          <div class="wallet-stat">
+            <span class="stat-label">Saldo Saat Ini</span>
+            <span class="stat-value" id="stat-current-balance">Rp 0</span>
+          </div>
+          <div class="wallet-stat">
+            <span class="stat-label">Biaya Belum Dibayar</span>
+            <span class="stat-value text-warning" id="stat-unpaid-fixed">Rp 0</span>
+          </div>
+          <div class="wallet-stat full-width">
+            <div>
+              <span class="stat-label">Uang Bebas Jajan</span>
+              <span class="stat-value text-primary" id="stat-available-funds">Rp 0</span>
+            </div>
+            <span class="stat-badge-info" id="stat-funds-note">Untuk sisa hari</span>
+          </div>
+        </div>
+
+        <!-- Daftar Biaya Tetap (Toggleable / Checkable) -->
+        <div id="fixed-costs-drawer" class="fixed-costs-drawer hidden">
+          <div class="drawer-header">
+            <h4>Daftar Biaya Tetap</h4>
+            <span class="text-secondary text-sm">Centang jika sudah kamu bayar</span>
+          </div>
+          <div id="dashboard-fixed-list" class="dashboard-fixed-items">
+            <!-- Di-render oleh JS -->
+          </div>
+          <button type="button" id="btn-add-fixed-dashboard" class="btn btn-secondary btn-sm mt-3">
+            ➕ Tambah Pengeluaran Tetap
+          </button>
+        </div>
+      </div>
+
+      <!-- GRAFIK SIKLUS BERJALAN (CHART.JS: Jatah vs Aktual) -->
+      <div class="card chart-card" id="chart-card">
+        <div class="chart-header">
+          <div>
+            <h3>Jatah vs Pengeluaran Aktual</h3>
+            <span class="text-secondary text-sm">Perjalanan jajan siklus ini</span>
+          </div>
+          <span class="badge-soft text-sm" id="chart-cycle-label">Siklus Ini</span>
+        </div>
+        <div class="chart-wrapper">
+          <canvas id="cycleChart"></canvas>
+        </div>
+      </div>
+
+      <!-- RIWAYAT PENGELUARAN HARI INI -->
+      <section class="today-expenses-section">
+        <div class="section-header">
+          <div>
+            <h3>Jajan Hari Ini</h3>
+            <span class="text-secondary text-sm" id="expenses-today-count">0 transaksi</span>
+          </div>
+          <span class="total-today-badge" id="expenses-today-total">Rp 0</span>
+        </div>
+
+        <div id="today-expenses-list" class="expenses-list">
+          <!-- Item transaksi di-render oleh JS -->
+        </div>
+      </section>
+
+      <!-- SPACE UNTUK MENGHINDARI TERTUTUP FLOATING BUTTON -->
+      <div class="bottom-spacer"></div>
+    </main>
+
+    <!-- FLOATING ACTION BUTTON (FAB) "+ Jajan" -->
+    <div class="fab-container" id="fab-container">
+      <button id="btn-open-jajan-modal" class="fab-btn" aria-label="Catat Pengeluaran Baru">
+        <span class="fab-icon">➕</span>
+        <span class="fab-label">Jajan</span>
+      </button>
+    </div>
+
+    <!-- MODAL CEPAT: "+ JAJAN" (Max 3-Tap Design) -->
+    <div id="modal-jajan" class="modal-overlay hidden" role="dialog" aria-modal="true">
+      <div class="modal-content modal-bottom-sheet">
+        <div class="modal-grabber"></div>
+        <div class="modal-header">
+          <h3>Catat Pengeluaran 💸</h3>
+          <button type="button" class="btn-close-modal" id="btn-close-jajan">&times;</button>
+        </div>
+
+        <form id="form-jajan">
+          <input type="hidden" id="edit-expense-id" value="">
+
+          <!-- Nominal Input -->
+          <div class="form-group mb-2">
+            <label for="jajan-amount">Berapa yang kamu keluarkan?</label>
+            <div class="input-prefix-wrapper">
+              <span class="input-prefix">Rp</span>
+              <input type="text" inputmode="numeric" id="jajan-amount" placeholder="0" required autofocus autocomplete="off">
+            </div>
+          </div>
+
+          <!-- Quick Amount Chips (Tap 1) -->
+          <div class="amount-chips">
+            <button type="button" class="chip" data-amount="10000">+10rb</button>
+            <button type="button" class="chip" data-amount="15000">+15rb</button>
+            <button type="button" class="chip" data-amount="20000">+20rb</button>
+            <button type="button" class="chip" data-amount="30000">+30rb</button>
+            <button type="button" class="chip" data-amount="50000">+50rb</button>
+          </div>
+
+          <!-- Kategori Selector (Tap 2) -->
+          <div class="form-group mt-3">
+            <label>Kategori</label>
+            <div class="category-grid">
+              <label class="category-option">
+                <input type="radio" name="jajan-category" value="makan" checked>
+                <div class="category-box">
+                  <span class="cat-icon">🍲</span>
+                  <span class="cat-name">Makan</span>
+                </div>
+              </label>
+
+              <label class="category-option">
+                <input type="radio" name="jajan-category" value="transport">
+                <div class="category-box">
+                  <span class="cat-icon">🛵</span>
+                  <span class="cat-name">Transport</span>
+                </div>
+              </label>
+
+              <label class="category-option">
+                <input type="radio" name="jajan-category" value="nongkrong">
+                <div class="category-box">
+                  <span class="cat-icon">☕</span>
+                  <span class="cat-name">Nongkrong</span>
+                </div>
+              </label>
+
+              <label class="category-option">
+                <input type="radio" name="jajan-category" value="lainnya">
+                <div class="category-box">
+                  <span class="cat-icon">📦</span>
+                  <span class="cat-name">Lainnya</span>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <!-- Catatan Opsional -->
+          <div class="form-group mt-3">
+            <label for="jajan-note">Catatan (Opsional)</label>
+            <input type="text" id="jajan-note" placeholder="Misal: Nasi Padang rendang, Es teh" autocomplete="off">
+          </div>
+
+          <!-- Submit Button (Tap 3) -->
+          <div class="modal-actions mt-4">
+            <button type="submit" class="btn btn-primary btn-block btn-lg" id="btn-submit-jajan">
+              Catat Jajan Sekarang ✨
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- MODAL PEMASUKAN EKSTRA (HONOR / TRANSFERAN TAMBAHAN) -->
+    <div id="modal-income" class="modal-overlay hidden" role="dialog" aria-modal="true">
+      <div class="modal-content modal-dialog">
+        <div class="modal-header">
+          <h3>Tambah Pemasukan Ekstra 💰</h3>
+          <button type="button" class="btn-close-modal" id="btn-close-income">&times;</button>
+        </div>
+        <form id="form-income">
+          <p class="text-secondary text-sm mb-2">Dapat transferan ekstra atau honor freelance? Masukkan di sini agar jatah harianmu otomatis bertambah!</p>
+          <div class="form-group">
+            <label for="income-amount">Nominal Uang Masuk</label>
+            <div class="input-prefix-wrapper">
+              <span class="input-prefix">Rp</span>
+              <input type="text" inputmode="numeric" id="income-amount" placeholder="0" required autocomplete="off">
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="income-note">Sumber / Keterangan</label>
+            <input type="text" id="income-note" placeholder="Misal: Honor asdos, Uang tambahan ortu, Jual buku" autocomplete="off" required>
+          </div>
+          <div class="modal-actions mt-4">
+            <button type="button" class="btn btn-secondary flex-1" id="btn-cancel-income">Batal</button>
+            <button type="submit" class="btn btn-primary flex-1">Simpan Pemasukan ✨</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- MODAL UBAH TANGGAL KIRIMAN -->
+    <div id="modal-edit-date" class="modal-overlay hidden" role="dialog" aria-modal="true">
+      <div class="modal-content modal-dialog">
+        <div class="modal-header">
+          <h3>Ubah Tanggal Kiriman 🗓️</h3>
+          <button type="button" class="btn-close-modal" id="btn-close-edit-date">&times;</button>
+        </div>
+        <form id="form-edit-date">
+          <p class="text-secondary text-sm mb-2">Jadwal kiriman maju atau mundur? Atur tanggalnya di sini, Cukupin akan menghitung ulang sisa hari dan jatah harianmu.</p>
+          <div class="form-group">
+            <label for="edit-target-date">Tanggal Kiriman Berikutnya</label>
+            <input type="date" id="edit-target-date" required>
+          </div>
+          <div class="modal-actions mt-4">
+            <button type="button" class="btn btn-secondary flex-1" id="btn-cancel-edit-date">Batal</button>
+            <button type="submit" class="btn btn-primary flex-1">Perbarui Jadwal 🔄</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- MODAL SIKLUS BARU (CARRY OVER SISA SALDO) -->
+    <div id="modal-new-cycle" class="modal-overlay hidden" role="dialog" aria-modal="true">
+      <div class="modal-content modal-dialog">
+        <div class="modal-header">
+          <h3>Mulai Siklus Kiriman Baru 🎉</h3>
+          <button type="button" class="btn-close-modal" id="btn-close-new-cycle">&times;</button>
+        </div>
+        <form id="form-new-cycle">
+          <div class="cycle-carryover-box mb-3">
+            <span class="text-secondary text-sm">Sisa Uang dari Siklus Sebelumnya:</span>
+            <div class="carryover-amount" id="new-cycle-prev-balance">Rp 0</div>
+            <label class="checkbox-label mt-2">
+              <input type="checkbox" id="check-carry-over" checked>
+              <span>Bawa sisa uang lama (Carry over ke saldo baru)</span>
+            </label>
+          </div>
+
+          <div class="form-group">
+            <label for="new-cycle-income">Nominal Kiriman Baru</label>
+            <div class="input-prefix-wrapper">
+              <span class="input-prefix">Rp</span>
+              <input type="text" inputmode="numeric" id="new-cycle-income" placeholder="0" required autocomplete="off">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="new-cycle-next-date">Tanggal Kiriman Siklus Berikutnya</label>
+            <input type="date" id="new-cycle-next-date" required>
+          </div>
+
+          <div class="form-group">
+            <label class="checkbox-label">
+              <input type="checkbox" id="check-reset-fixed-costs" checked>
+              <span>Reset status biaya tetap (jadikan belum bayar untuk bulan baru)</span>
+            </label>
+          </div>
+
+          <div class="modal-actions mt-4">
+            <button type="button" class="btn btn-secondary flex-1" id="btn-cancel-new-cycle">Batal</button>
+            <button type="submit" class="btn btn-primary flex-1">Buka Siklus Baru 🚀</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- MODAL TAMBAH/EDIT BIAYA TETAP -->
+    <div id="modal-fixed" class="modal-overlay hidden" role="dialog" aria-modal="true">
+      <div class="modal-content modal-dialog">
+        <div class="modal-header">
+          <h3 id="modal-fixed-title">Biaya Tetap</h3>
+          <button type="button" class="btn-close-modal" id="btn-close-fixed">&times;</button>
+        </div>
+        <form id="form-fixed-item">
+          <input type="hidden" id="fixed-item-id" value="">
+          <div class="form-group">
+            <label for="fixed-name">Nama Biaya</label>
+            <input type="text" id="fixed-name" placeholder="Misal: Kosan, Uang Kas, Wifi" required>
+          </div>
+          <div class="form-group">
+            <label for="fixed-amount">Nominal</label>
+            <div class="input-prefix-wrapper">
+              <span class="input-prefix">Rp</span>
+              <input type="text" inputmode="numeric" id="fixed-amount" placeholder="0" required>
+            </div>
+          </div>
+          <div class="form-group checkbox-group">
+            <label class="checkbox-label">
+              <input type="checkbox" id="fixed-paid-status">
+              <span>Sudah dibayar</span>
+            </label>
+          </div>
+          <div class="modal-actions mt-4">
+            <button type="button" class="btn btn-secondary" id="btn-cancel-fixed">Batal</button>
+            <button type="submit" class="btn btn-primary" id="btn-save-fixed">Simpan</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- MODAL PENGATURAN & BACKUP / RESTORE -->
+    <div id="modal-settings" class="modal-overlay hidden" role="dialog" aria-modal="true">
+      <div class="modal-content modal-dialog">
+        <div class="modal-header">
+          <h3>Pengaturan & Data ⚙️</h3>
+          <button type="button" class="btn-close-modal" id="btn-close-settings">&times;</button>
+        </div>
+        
+        <div class="settings-list">
+          <!-- Siklus Baru -->
+          <div class="settings-item" id="setting-item-new-cycle">
+            <div class="settings-item-info">
+              <span class="settings-item-title">Kiriman Baru Tiba</span>
+              <span class="settings-item-sub">Mulai siklus baru & carry over saldo</span>
+            </div>
+            <button class="btn btn-sm btn-secondary" id="btn-settings-open-new-cycle">Buka Siklus</button>
+          </div>
+
+          <!-- Ubah Tanggal Kiriman -->
+          <div class="settings-item">
+            <div class="settings-item-info">
+              <span class="settings-item-title">Tanggal Kiriman</span>
+              <span class="settings-item-sub" id="settings-current-date-label">--</span>
+            </div>
+            <button class="btn btn-sm btn-secondary" id="btn-settings-edit-date">Ubah</button>
+          </div>
+
+          <!-- Tambah Uang Masuk -->
+          <div class="settings-item">
+            <div class="settings-item-info">
+              <span class="settings-item-title">Pemasukan Ekstra</span>
+              <span class="settings-item-sub">Honor freelance, tambahan ortu</span>
+            </div>
+            <button class="btn btn-sm btn-secondary" id="btn-settings-add-income">+ Masuk</button>
+          </div>
+
+          <!-- Backup & Restore Data -->
+          <div class="settings-item">
+            <div class="settings-item-info">
+              <span class="settings-item-title">Ekspor Backup (JSON)</span>
+              <span class="settings-item-sub">Simpan cadangan data ke file HP / Laptop</span>
+            </div>
+            <button class="btn btn-sm btn-secondary" id="btn-export-backup">Unduh JSON</button>
+          </div>
+
+          <div class="settings-item">
+            <div class="settings-item-info">
+              <span class="settings-item-title">Impor Backup (JSON)</span>
+              <span class="settings-item-sub">Pulihkan data dari file JSON cadangan</span>
+            </div>
+            <label class="btn btn-sm btn-secondary file-upload-label">
+              Pilih File
+              <input type="file" id="input-import-backup" accept=".json" style="display: none;">
+            </label>
+          </div>
+
+          <!-- Mode Gelap -->
+          <div class="settings-item">
+            <div class="settings-item-info">
+              <span class="settings-item-title">Mode Gelap (Dark Mode)</span>
+              <span class="settings-item-sub">Ikuti preferensi sistem atau manual</span>
+            </div>
+            <button class="btn btn-sm btn-secondary" id="btn-settings-toggle-theme">Ganti Tema</button>
+          </div>
+
+          <!-- Reset Total -->
+          <div class="settings-item border-danger">
+            <div class="settings-item-info">
+              <span class="settings-item-title text-exceeded">Reset Semua Data</span>
+              <span class="settings-item-sub">Hapus semua data dan mulai dari awal</span>
+            </div>
+            <button class="btn btn-sm btn-danger" id="btn-settings-reset">Reset</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL KONFIRMASI HAPUS / AKSI -->
+    <div id="modal-confirm" class="modal-overlay hidden" role="dialog" aria-modal="true">
+      <div class="modal-content modal-dialog text-center">
+        <div class="confirm-icon">🗑️</div>
+        <h3 id="confirm-title">Konfirmasi Tindakan</h3>
+        <p class="text-secondary mt-1" id="confirm-desc">Apakah kamu yakin?</p>
+        <div class="modal-actions mt-4">
+          <button type="button" class="btn btn-secondary flex-1" id="btn-confirm-cancel">Batal</button>
+          <button type="button" class="btn btn-danger flex-1" id="btn-confirm-ok">Lanjutkan</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Script Logic -->
+  <script src="script.js"></script>
+</body>
+</html>
